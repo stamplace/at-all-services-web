@@ -1,4 +1,4 @@
-name: Deploy Editorial Candidate to GitHub Pages
+name: Deploy Client-Ready Candidate to GitHub Pages
 
 on:
   push:
@@ -22,16 +22,16 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout editorial candidate
+      - name: Checkout client-ready candidate
         uses: actions/checkout@v4
         with:
-          ref: redesign/editorial-v3
+          ref: rebuild/client-ready-v4
 
       - name: Prepare static site
         run: |
           rm -rf _site
           mkdir -p _site
-          cp index.html privacy.html _site/
+          cp index.html privacy.html styles.css app.js _site/
           if [ -d assets ]; then cp -R assets _site/assets; fi
           touch _site/.nojekyll
 
