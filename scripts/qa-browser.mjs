@@ -41,6 +41,7 @@ for (const vp of viewports) {
 
   const metrics = await page.evaluate(() => {
     const hero = document.querySelector('.hero');
+    const copy = document.querySelector('.hero-copy');
     const media = document.querySelector('.hero-media');
     const h1 = document.querySelector('h1');
     const primary = document.querySelector('.hero .primary');
@@ -50,7 +51,7 @@ for (const vp of viewports) {
       viewportWidth: innerWidth,
       scrollWidth: document.documentElement.scrollWidth,
       h1Count: document.querySelectorAll('h1').length,
-      hero: r(hero), media: r(media), h1: r(h1), primary: r(primary),
+      hero:r(hero), copy:r(copy), media:r(media), h1:r(h1), primary:r(primary),
       dockOpacity: dock ? getComputedStyle(dock).opacity : null,
       callHrefs:[...document.querySelectorAll('a[href^="tel:"]')].map(a=>a.getAttribute('href')),
       emailHrefs:[...document.querySelectorAll('a[href^="mailto:"]')].map(a=>a.getAttribute('href')),
@@ -70,17 +71,32 @@ for (const vp of viewports) {
     if (!metrics.h1 || metrics.h1.height > 175) fail(`${vp.name}: H1 dominates too much vertical space`);
     if (!metrics.primary || metrics.primary.bottom > vp.height) fail(`${vp.name}: primary Call CTA is not visible in first viewport`);
     if (Number(metrics.dockOpacity) > 0.05) fail(`${vp.name}: sticky dock competes with hero CTA at top`);
-    await page.evaluate(() => window.scrollTo(0, Math.max(700, document.querySelector('#services').offsetTop)));
-    await page.waitForTimeout(350);
+  }
+
+  if (vp.width >= 1440) {
+    if (!metrics.copy || metrics.copy.width < 520) fail(`${vp.name}: hero copy column is too narrow (${metrics.copy?.width}px)`);
+    if (!metrics.h1 || metrics.h1.height > 300) fail(`${vp.name}: desktop H1 wraps too deeply (${metrics.h1?.height}px)`);
+    if (!metrics.primary || metrics.primary.width < 175 || metrics.primary.height > 72) fail(`${vp.name}: primary Call CTA lost horizontal integrity`);
+    if (!metrics.media || metrics.media.width < vp.width * .48) fail(`${vp.name}: hero photography field is too small`);
+  }
+
+  // Capture true top-of-page proof before any scroll-based interaction test.
+  await page.screenshot({ path:path.join(qaDir, `${vp.name}-top.png`), fullPage:false });
+  await page.screenshot({ path:path.join(qaDir, `${vp.name}-full.png`), fullPage:true });
+
+  if (vp.width <= 430) {
+    await page.evaluate(() => {
+      document.documentElement.style.scrollBehavior = 'auto';
+      window.scrollTo(0, Math.max(700, document.querySelector('#services').offsetTop));
+    });
+    await page.waitForTimeout(300);
     const dockAfter = await page.locator('#dock').evaluate(el => ({ opacity:Number(getComputedStyle(el).opacity), pointer:getComputedStyle(el).pointerEvents }));
     if (dockAfter.opacity < .9 || dockAfter.pointer === 'none') fail(`${vp.name}: sticky dock did not appear after hero CTA left view`);
     await page.evaluate(() => window.scrollTo(0,0));
-    await page.waitForTimeout(150);
+    await page.waitForFunction(() => scrollY === 0);
   }
 
-  await page.screenshot({ path:path.join(qaDir, `${vp.name}-top.png`), fullPage:false });
-  await page.screenshot({ path:path.join(qaDir, `${vp.name}-full.png`), fullPage:true });
-  report.viewports.push({ ...vp, metrics:{ scrollWidth:metrics.scrollWidth, h1Count:metrics.h1Count, mediaHeight:metrics.media?.height, h1Height:metrics.h1?.height, primaryBottom:metrics.primary?.bottom }, runtimeErrors });
+  report.viewports.push({ ...vp, metrics:{ scrollWidth:metrics.scrollWidth, h1Count:metrics.h1Count, copyWidth:metrics.copy?.width, mediaWidth:metrics.media?.width, mediaHeight:metrics.media?.height, h1Height:metrics.h1?.height, primaryWidth:metrics.primary?.width, primaryHeight:metrics.primary?.height, primaryBottom:metrics.primary?.bottom }, runtimeErrors });
   await context.close();
 }
 
